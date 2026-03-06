@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Ejecutivo | Transmisión</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #f4f4f9; margin: 0; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 90%; }
+        button { background: #007bff; color: white; border: none; padding: 12px 24px; font-size: 1rem; border-radius: 6px; cursor: pointer; margin-top: 1rem; width: 100%; }
+        button:hover { background: #0056b3; }
+        #status { margin-top: 1rem; font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Transmisión de Audio</h2>
+        <p>Haz clic en iniciar, selecciona <b>Toda la pantalla</b> y asegúrate de marcar <b>"Compartir audio del sistema"</b>.</p>
+        <button id="startBtn">Iniciar Transmisión</button>
+        <div id="status">Estado: Desconectado</div>
+    </div>
+
+    <script>
+        // Forzamos el ID 'ejecutivo_01' para que el supervisor sepa a quién llamar
+        const peer = new Peer('ejecutivo_01'); 
+        let localStream = null;
+
+        const startBtn = document.getElementById('startBtn');
+        const statusEl = document.getElementById('status');
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                // getDisplayMedia exige video por defecto, pero nos interesa el audio
+                localStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true, 
+                    audio: true
+                });
+                
+                statusEl.innerText = "Estado: Transmitiendo... (Esperando conexión)";
+                startBtn.disabled = true;
+                startBtn.style.background = "#28a745";
+                startBtn.innerText = "Transmisión Activa";
+
+                // Si el ejecutivo detiene la pantalla nativamente
+                localStream.getVideoTracks()[0].onended = () => {
+                    statusEl.innerText = "Estado: Transmisión detenida por el usuario.";
+                    startBtn.disabled = false;
+                    startBtn.style.background = "#007bff";
+                    startBtn.innerText = "Iniciar Transmisión";
+                };
+
+            } catch (err) {
+                console.error(err);
+                statusEl.innerText = "Error: Permiso denegado o no se compartió audio.";
+            }
+        });
+
+        // Cuando el supervisor nos llame, respondemos con nuestro stream de audio/video
+        peer.on('call', (call) => {
+            if (localStream) {
+                call.answer(localStream);
+                statusEl.innerText = "Estado: Supervisor Conectado y Escuchando 🎧";
+            } else {
+                console.warn("Llamada entrante, pero el stream no está iniciado.");
+            }
+        });
+    </script>
+</body>
+</html>
