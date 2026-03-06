@@ -37,7 +37,7 @@
                     audio: true
                 });
                 
-                statusEl.innerText = "Estado: Transmitiendo... (Esperando conexión)";
+                statusEl.innerText = "Estado: Transmitiendo... (Esperando al supervisor)";
                 startBtn.disabled = true;
                 startBtn.style.background = "#28a745";
                 startBtn.innerText = "Transmisión Activa";
@@ -48,6 +48,7 @@
                     startBtn.disabled = false;
                     startBtn.style.background = "#007bff";
                     startBtn.innerText = "Iniciar Transmisión";
+                    localStream = null;
                 };
 
             } catch (err) {
@@ -56,14 +57,17 @@
             }
         });
 
-        // Cuando el supervisor nos llame, respondemos con nuestro stream de audio/video
-        peer.on('call', (call) => {
-            if (localStream) {
-                call.answer(localStream);
-                statusEl.innerText = "Estado: Supervisor Conectado y Escuchando 🎧";
-            } else {
-                console.warn("Llamada entrante, pero el stream no está iniciado.");
-            }
+        // LÓGICA: Escuchamos si el supervisor nos envía un mensaje de conexión
+        peer.on('connection', (conn) => {
+            conn.on('data', (data) => {
+                if (data === 'START_AUDIO' && localStream) {
+                    // El supervisor nos pide audio, ¡Nosotros lo llamamos a él!
+                    const call = peer.call(conn.peer, localStream);
+                    statusEl.innerText = "Estado: Supervisor Conectado y Escuchando 🎧";
+                } else if (!localStream) {
+                    console.warn("El supervisor intentó conectar, pero la transmisión no está activa.");
+                }
+            });
         });
     </script>
 </body>
